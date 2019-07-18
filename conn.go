@@ -159,28 +159,11 @@ func (c *Conn) Connect() (*IdentifyResponse, error) {
 		return nil, fmt.Errorf("[%s] failed to write magic - %s", c.addr, err)
 	}
 
-	resp, err := c.identify()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp != nil && resp.AuthRequired {
-		if c.config.AuthSecret == "" {
-			c.log(LogLevelError, "Auth Required")
-			return nil, errors.New("Auth Required")
-		}
-		err := c.auth(c.config.AuthSecret)
-		if err != nil {
-			c.log(LogLevelError, "Auth Failed %s", err)
-			return nil, err
-		}
-	}
-
 	c.wg.Add(2)
 	atomic.StoreInt32(&c.readLoopRunning, 1)
 	go c.readLoop()
 	go c.writeLoop()
-	return resp, nil
+	return nil, nil
 }
 
 // Close idempotently initiates connection close

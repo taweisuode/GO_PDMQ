@@ -554,14 +554,6 @@ func (r *Consumer) ConnectToPDMQD(addr string) error {
 		return err
 	}
 
-	if resp != nil {
-		if resp.MaxRdyCount < int64(r.getMaxInFlight()) {
-			r.log(LogLevelWarning,
-				"(%s) max RDY count %d < consumer max in flight %d, truncation possible",
-				conn.String(), resp.MaxRdyCount, r.getMaxInFlight())
-		}
-	}
-
 	cmd := Subscribe(r.topic, r.channel)
 	err = conn.WriteCommand(cmd)
 	if err != nil {
