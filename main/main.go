@@ -22,10 +22,6 @@ func (this *PDMQHandler) HandleMessage(message *pdmq.Message) error {
 	fmt.Println(123456, string(message.Body))
 	return nil
 }
-func (this *NsqHandler) HandleMessage(message *nsq.Message) error {
-	fmt.Println(string(message.Body))
-	return nil
-}
 func main() {
 	config := pdmq.NewConfig()
 	consumer, err := pdmq.NewConsumer("name", "hello", config)
@@ -41,7 +37,10 @@ func main() {
 
 	select {}
 }
-
+func (this *NsqHandler) HandleMessage(message *nsq.Message) error {
+	fmt.Println(string(message.Body))
+	return nil
+}
 func main2() {
 	consumer, err := nsq.NewConsumer("name", "world", nsq.NewConfig())
 	if err != nil {
