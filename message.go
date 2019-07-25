@@ -2,6 +2,7 @@ package pdmq
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -9,7 +10,13 @@ import (
 )
 
 // The number of bytes for a Message.ID
-const MsgIDLength = 16
+const (
+	MsgIDLength = 16
+
+	ProtocolCommonResponse  int16 = 1
+	ProtocolErrorResponse   int16 = 2
+	ProtocolMessageResponse int16 = 3
+)
 
 // MessageID is the ASCII encoded hexadecimal message ID
 type MessageID [MsgIDLength]byte
@@ -17,11 +24,11 @@ type MessageID [MsgIDLength]byte
 // Message is the fundamental data type containing
 // the id, body, and metadata
 type Message struct {
-	ID        MessageID
-	Body      []byte
-	Timestamp int64
-	Attempts  uint16
-
+	ID           MessageID
+	Body         []byte
+	Timestamp    int64
+	Attempts     uint16
+	ProtocolType int16
 	PDMQDAddress string
 
 	Delegate MessageDelegate
@@ -34,9 +41,10 @@ type Message struct {
 // and returns a pointer
 func NewMessage(id MessageID, body []byte) *Message {
 	return &Message{
-		ID:        id,
-		Body:      body,
-		Timestamp: time.Now().UnixNano(),
+		ID:           id,
+		Body:         body,
+		ProtocolType: ProtocolCommonResponse, //默认消息类型是普通消息
+		Timestamp:    time.Now().UnixNano(),
 	}
 }
 
@@ -160,6 +168,22 @@ func DecodeMessage(b []byte) (*Message, error) {
 	msg.Attempts = binary.BigEndian.Uint16(b[8:10])
 	copy(msg.ID[:], b[10:10+MsgIDLength])
 	msg.Body = b[10+MsgIDLength:]
+
+	return &msg, nil
+}
+
+func DecodeMessageV2(b []byte) (*Message, error) {
+	var msg Message
+
+	if len(b) < 10+MsgIDLength {
+		return nil, errors.New("not enough data to decode valid message")
+	}
+
+	msg.Timestamp = int64(binary.BigEndian.Uint64(b[:8]))
+	msg.Attempts = binary.BigEndian.Uint16(b[8:10])
+	msg.ProtocolType = int16(binary.BigEndian.Uint16(b[10:12]))
+	copy(msg.ID[:], b[12:12+MsgIDLength])
+	msg.Body = b[12+MsgIDLength:]
 
 	return &msg, nil
 }

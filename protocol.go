@@ -94,3 +94,14 @@ func ReadUnpackedResponse(r io.Reader) (int32, []byte, error) {
 	}
 	return UnpackResponse(buf[:bufLen])
 }
+
+//这里是接收pdmqd 返回的所有信息，因为上游统一返回的是 message结构的[]byte数组，可以直接返回
+//这里跟nsq 不一样
+func ReadFullResponse(r io.Reader) ([]byte, error) {
+	buf := make([]byte, 1024)
+	bufLen, err := r.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:bufLen], nil
+}

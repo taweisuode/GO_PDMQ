@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cihub/seelog"
 	"io"
 	"net"
 	"sync"
@@ -136,8 +137,8 @@ func (c *Conn) getLogger() (logger, LogLevel, string) {
 	return c.logger, c.logLvl, c.logFmt
 }
 
-// Connect dials and bootstraps the pdmqd connection
-// (including IDENTIFY) and returns the IdentifyResponse
+//与pdmqd之间建立连接 处理数据请求
+//IdentifyResponse 身份验证功能暂时不可用,提供基础的io请求
 func (c *Conn) Connect() (*IdentifyResponse, error) {
 	dialer := &net.Dialer{
 		LocalAddr: c.config.LocalAddr,
@@ -471,60 +472,16 @@ func (c *Conn) readLoop() {
 			goto exit
 		}
 
-		frameType, data, err := ReadUnpackedResponse(c)
-		if string(data) != "error" {
-			msg := &Message{
-				Body: data,
-			}
-			//msg, err := DecodeMessage(data)
-			/*if err != nil {
-				c.log(LogLevelError, "IO error - %s", err)
-				c.delegate.OnIOError(c, err)
-				goto exit
-			}*/
-			msg.Delegate = delegate
-			msg.PDMQDAddress = c.String()
-
-			atomic.AddInt64(&c.messagesInFlight, 1)
-			atomic.StoreInt64(&c.lastMsgTimestamp, time.Now().UnixNano())
-
-			c.delegate.OnMessage(c, msg)
-
-			c.log(LogLevelInfo, "IO error - %s %s", frameType, err)
-		}
-		/*if err != nil {
-			if err == io.EOF && atomic.LoadInt32(&c.closeFlag) == 1 {
-				goto exit
-			}
-			if !strings.Contains(err.Error(), "use of closed network connection") {
-				c.log(LogLevelError, "IO error - %s", err)
-				c.delegate.OnIOError(c, err)
-			}
+		messageData, err := ReadFullResponse(c)
+		msg, err := DecodeMessageV2(messageData)
+		if err != nil {
+			seelog.Errorf("decode message error is [%+v]\n", err.Error())
 			goto exit
 		}
-
-		if frameType == FrameTypeResponse && bytes.Equal(data, []byte("_heartbeat_")) {
-			c.log(LogLevelDebug, "heartbeat received")
-			c.delegate.OnHeartbeat(c)
-			err := c.WriteCommand(Nop())
-			if err != nil {
-				c.log(LogLevelError, "IO error - %s", err)
-				c.delegate.OnIOError(c, err)
-				goto exit
-			}
-			continue
-		}
-
-		switch frameType {
-		case FrameTypeResponse:
-			c.delegate.OnResponse(c, data)
-		case FrameTypeMessage:
-			msg, err := DecodeMessage(data)
-			if err != nil {
-				c.log(LogLevelError, "IO error - %s", err)
-				c.delegate.OnIOError(c, err)
-				goto exit
-			}
+		fmt.Printf("msg data is [%+v],stamp is [%+v],attemp is [%+v],message_type is [%+v]\n", string(msg.Body), msg.Timestamp, msg.Attempts, msg.ProtocolType)
+		switch msg.ProtocolType {
+		case ProtocolMessageResponse:
+			//处理正常Message消息体，会代理到pdmqHandler中
 			msg.Delegate = delegate
 			msg.PDMQDAddress = c.String()
 
@@ -532,13 +489,10 @@ func (c *Conn) readLoop() {
 			atomic.StoreInt64(&c.lastMsgTimestamp, time.Now().UnixNano())
 
 			c.delegate.OnMessage(c, msg)
-		case FrameTypeError:
-			c.log(LogLevelError, "protocol error - %s", data)
-			c.delegate.OnError(c, data)
-		default:
-			c.log(LogLevelError, "IO error - %s", err)
-			c.delegate.OnIOError(c, fmt.Errorf("unknown frame type %d", frameType))
-		}*/
+		case ProtocolCommonResponse:
+			//处理2个服务之间的非Message内容响应，代理到reponse中
+			c.delegate.OnResponse(c, msg.Body)
+		}
 	}
 
 exit:
