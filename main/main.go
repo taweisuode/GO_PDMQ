@@ -19,20 +19,21 @@ type NsqHandler struct {
 }
 
 func (this *PDMQHandler) HandleMessage(message *pdmq.Message) error {
-	fmt.Println(message.Body)
+	fmt.Println(123456, string(message.Body))
 	return nil
 }
 func (this *NsqHandler) HandleMessage(message *nsq.Message) error {
 	fmt.Println(string(message.Body))
 	return nil
 }
-func main2() {
+func main() {
 	config := pdmq.NewConfig()
 	consumer, err := pdmq.NewConsumer("name", "hello", config)
 	if err != nil {
 		fmt.Println(err)
 	}
 	consumer.AddHandler(&PDMQHandler{})
+
 	err = consumer.ConnectToPDMQD("127.0.0.1:9400")
 	if err != nil {
 		fmt.Println(err)
@@ -41,7 +42,7 @@ func main2() {
 	select {}
 }
 
-func main() {
+func main2() {
 	consumer, err := nsq.NewConsumer("name", "world", nsq.NewConfig())
 	if err != nil {
 		fmt.Println(err)

@@ -546,13 +546,13 @@ func (r *Consumer) ConnectToPDMQD(addr string) error {
 		conn.Close()
 	}
 
-	resp, err := conn.Connect()
-
-	fmt.Printf("resp is [%+v],err is [%+v]", resp, err)
+	_, err := conn.Connect()
 	if err != nil {
 		cleanupConnection()
 		return err
 	}
+
+	fmt.Println("connect success!")
 
 	cmd := Subscribe(r.topic, r.channel)
 	err = conn.WriteCommand(cmd)
@@ -1080,7 +1080,6 @@ func (r *Consumer) AddConcurrentHandlers(handler Handler, concurrency int) {
 
 func (r *Consumer) handlerLoop(handler Handler) {
 	r.log(LogLevelDebug, "starting Handler")
-
 	for {
 		message, ok := <-r.incomingMessages
 		if !ok {

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -464,13 +463,36 @@ func (c *Conn) auth(secret string) error {
 
 func (c *Conn) readLoop() {
 	delegate := &connMessageDelegate{c}
+	//返回一个拥有 默认size 的reader，接收客户端输入
+	fmt.Println("正在接收生产端的消息...")
+
 	for {
 		if atomic.LoadInt32(&c.closeFlag) == 1 {
 			goto exit
 		}
 
 		frameType, data, err := ReadUnpackedResponse(c)
-		if err != nil {
+		if string(data) != "error" {
+			msg := &Message{
+				Body: data,
+			}
+			//msg, err := DecodeMessage(data)
+			/*if err != nil {
+				c.log(LogLevelError, "IO error - %s", err)
+				c.delegate.OnIOError(c, err)
+				goto exit
+			}*/
+			msg.Delegate = delegate
+			msg.PDMQDAddress = c.String()
+
+			atomic.AddInt64(&c.messagesInFlight, 1)
+			atomic.StoreInt64(&c.lastMsgTimestamp, time.Now().UnixNano())
+
+			c.delegate.OnMessage(c, msg)
+
+			c.log(LogLevelInfo, "IO error - %s %s", frameType, err)
+		}
+		/*if err != nil {
 			if err == io.EOF && atomic.LoadInt32(&c.closeFlag) == 1 {
 				goto exit
 			}
@@ -516,7 +538,7 @@ func (c *Conn) readLoop() {
 		default:
 			c.log(LogLevelError, "IO error - %s", err)
 			c.delegate.OnIOError(c, fmt.Errorf("unknown frame type %d", frameType))
-		}
+		}*/
 	}
 
 exit:

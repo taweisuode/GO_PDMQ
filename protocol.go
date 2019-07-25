@@ -2,7 +2,6 @@ package pdmq
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"regexp"
 )
@@ -77,20 +76,21 @@ func ReadResponse(r io.Reader) ([]byte, error) {
 //
 // Returns a triplicate of: frame type, data ([]byte), error
 func UnpackResponse(response []byte) (int32, []byte, error) {
-	if len(response) < 4 {
+	/*	if len(response) < 4 {
 		return -1, nil, errors.New("length of response is too small")
-	}
+	}*/
 
-	return int32(binary.BigEndian.Uint32(response)), response[4:], nil
+	return int32(binary.BigEndian.Uint32(response)), response, nil
 }
 
 // ReadUnpackedResponse reads and parses data from the underlying
 // TCP connection according to the PDMQ TCP protocol spec and
 // returns the frameType, data or error
 func ReadUnpackedResponse(r io.Reader) (int32, []byte, error) {
-	resp, err := ReadResponse(r)
+	buf := make([]byte, 1024)
+	bufLen, err := r.Read(buf)
 	if err != nil {
 		return -1, nil, err
 	}
-	return UnpackResponse(resp)
+	return UnpackResponse(buf[:bufLen])
 }

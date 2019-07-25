@@ -2,7 +2,7 @@ package pdmq
 
 import (
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
@@ -151,10 +151,11 @@ func (m *Message) WriteTo(w io.Writer) (int64, error) {
 func DecodeMessage(b []byte) (*Message, error) {
 	var msg Message
 
-	if len(b) < 10+MsgIDLength {
+	/*	if len(b) < 10+MsgIDLength {
 		return nil, errors.New("not enough data to decode valid message")
-	}
+	}*/
 
+	fmt.Println(string(b), len(b))
 	msg.Timestamp = int64(binary.BigEndian.Uint64(b[:8]))
 	msg.Attempts = binary.BigEndian.Uint16(b[8:10])
 	copy(msg.ID[:], b[10:10+MsgIDLength])
