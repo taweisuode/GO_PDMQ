@@ -27,7 +27,8 @@ func main() {
 	}
 	consumer.AddHandler(&PDMQHandler{})
 
-	err = consumer.ConnectToPDMQD("127.0.0.1:9400")
+	//连接的是 pdmqloopd http 的端口
+	err = consumer.ConnectToPDMQLoopds([]string{"127.0.0.1:9501"})
 	if err != nil {
 		fmt.Println(err)
 	}

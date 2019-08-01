@@ -301,16 +301,12 @@ func (r *Consumer) ChangeMaxInFlight(maxInFlight int) {
 // producers for the configured topic.
 //
 // A goroutine is spawned to handle continual polling.
-func (r *Consumer) ConnectToPDMQLookupd(addr string) error {
+func (r *Consumer) ConnectToPDMQLoopd(addr string) error {
 	if atomic.LoadInt32(&r.stopFlag) == 1 {
 		return errors.New("consumer stopped")
 	}
 	if atomic.LoadInt32(&r.runningHandlers) == 0 {
 		return errors.New("no handlers")
-	}
-
-	if err := validatedLookupAddr(addr); err != nil {
-		return err
 	}
 
 	atomic.StoreInt32(&r.connectedFlag, 1)
@@ -324,11 +320,11 @@ func (r *Consumer) ConnectToPDMQLookupd(addr string) error {
 	}
 	r.lookupdHTTPAddrs = append(r.lookupdHTTPAddrs, addr)
 	numLookupd := len(r.lookupdHTTPAddrs)
-	r.mtx.Unlock()
 
+	r.mtx.Unlock()
 	// if this is the first one, kick off the go loop
 	if numLookupd == 1 {
-		r.queryLookupd()
+		r.queryLoopd()
 		r.wg.Add(1)
 		go r.lookupdLoop()
 	}
@@ -342,9 +338,9 @@ func (r *Consumer) ConnectToPDMQLookupd(addr string) error {
 // producers for the configured topic.
 //
 // A goroutine is spawned to handle continual polling.
-func (r *Consumer) ConnectToPDMQLookupds(addresses []string) error {
+func (r *Consumer) ConnectToPDMQLoopds(addresses []string) error {
 	for _, addr := range addresses {
-		err := r.ConnectToPDMQLookupd(addr)
+		err := r.ConnectToPDMQLoopd(addr)
 		if err != nil {
 			return err
 		}
@@ -387,9 +383,9 @@ func (r *Consumer) lookupdLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			r.queryLookupd()
+			r.queryLoopd()
 		case <-r.lookupdRecheckChan:
-			r.queryLookupd()
+			r.queryLoopd()
 		case <-r.exitChan:
 			goto exit
 		}
@@ -453,16 +449,20 @@ type peerInfo struct {
 // which pdmqd's provide the topic we are consuming.
 //
 // initiate a connection to any new producers that are identified.
-func (r *Consumer) queryLookupd() {
+func (r *Consumer) queryLoopd() {
 	retries := 0
 
+	//重试的go 写法
 retry:
+	//每次都获取下一个lookupd节点
 	endpoint := r.nextLookupdEndpoint()
 
 	r.log(LogLevelInfo, "querying pdmqlookupd %s", endpoint)
 
 	var data lookupResp
 	err := apiRequestNegotiateV1("GET", endpoint, nil, &data)
+
+	fmt.Printf("api request data is [%+v]\n", data)
 	if err != nil {
 		r.log(LogLevelError, "error querying pdmqlookupd (%s) - %s", endpoint, err)
 		retries++
@@ -484,6 +484,8 @@ retry:
 	if discoveryFilter, ok := r.behaviorDelegate.(DiscoveryFilter); ok {
 		pdmqdAddrs = discoveryFilter.Filter(pdmqdAddrs)
 	}
+
+	fmt.Printf("pdmqdAddrs is [%+v]\n", pdmqdAddrs)
 	for _, addr := range pdmqdAddrs {
 		err = r.ConnectToPDMQD(addr)
 		if err != nil && err != ErrAlreadyConnected {

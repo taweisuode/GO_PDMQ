@@ -40,8 +40,8 @@ func newDeadlineTransport(timeout time.Duration) *http.Transport {
 }
 
 type wrappedResp struct {
-	Status     string      `json:"status_txt"`
-	StatusCode int         `json:"status_code"`
+	Status     string      `json:"message"`
+	StatusCode int         `json:"code"`
 	Data       interface{} `json:"data"`
 }
 
@@ -62,6 +62,7 @@ func apiRequestNegotiateV1(method string, endpoint string, body io.Reader, ret i
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
+
 	if err != nil {
 		return err
 	}
